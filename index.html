@@ -113,7 +113,6 @@
   .empty{padding:30px 16px;text-align:center;color:var(--mut);font-size:.9rem}
 
   .detail{border-top:1px solid var(--stroke);padding:16px;max-height:52%;overflow-y:auto;background:rgba(0,0,0,.18)}
-  .detail.hide{display:none}
   .detail h2{font-family:var(--disp);font-weight:800;font-size:1.25rem;margin:0;letter-spacing:-.02em}
   .detail .tag{font-size:.72rem;color:var(--mut);margin:3px 0 14px}
   .alt{display:flex;align-items:stretch;gap:10px;margin-bottom:12px}
@@ -136,19 +135,33 @@
   .strip .d.on{background:rgba(39,224,138,.16);color:var(--green);border:1px solid rgba(39,224,138,.3)}
   .strip .d.off{color:var(--dim);text-decoration:line-through;opacity:.55}
   .strip .d.act{outline:2px solid var(--txt);outline-offset:1px}
+  .panel:not(.state-list) #sortwrap{display:none}
+  .sortwrap{flex:none;padding:0 14px 10px}
+  .sortbtn{background:var(--glass2);border:1px solid var(--stroke2);color:var(--txt);border-radius:9px;padding:8px 12px;font-size:.78rem;cursor:pointer;font-family:var(--body)}
+  .sortopts{display:none;gap:6px;margin-top:8px;flex-wrap:wrap}
+  .sortwrap.open .sortopts{display:flex}
+  .sortb{background:var(--glass2);border:1px solid var(--stroke2);color:var(--mut);border-radius:8px;padding:6px 11px;font-size:.74rem;cursor:pointer;font-family:var(--body);transition:.15s}
+  .sortb.on{border-color:var(--green);color:var(--green)}
   .meta{font-size:.76rem;color:var(--mut);line-height:1.6}
   .meta b{color:var(--txt)}.meta a{color:var(--red);text-decoration:none}.meta a:hover{text-decoration:underline}
 
   .komootbox{margin-top:12px}
-  .ktoggle{display:block;width:100%;text-align:center;cursor:pointer;font-weight:600;font-size:.84rem;color:#0b3d1e;
-    background:linear-gradient(120deg,#5fd08a,#27e08a);border:none;border-radius:11px;padding:11px 12px;transition:.15s;
-    box-shadow:0 8px 20px -10px rgba(39,224,138,.7);font-family:var(--body)}
-  .ktoggle:hover{filter:brightness(1.06)}
-  .ktoggle.on{background:var(--glass2);color:var(--txt);border:1px solid var(--stroke);box-shadow:none}
-  .kframe{max-height:0;overflow:hidden;transition:max-height .3s ease;border-radius:12px}
-  .kframe.open{max-height:340px;margin-top:8px}
-  .kopen{display:block;text-align:center;margin-top:8px;font-size:.74rem;color:var(--mut);text-decoration:none}
-  .kopen:hover{color:var(--red)}
+  .kbtn{display:flex;align-items:center;gap:10px;width:100%;text-decoration:none;cursor:pointer;
+    padding:15px 15px;border-radius:13px;font-family:var(--body);font-weight:700;font-size:.95rem;color:#062a14;
+    background:linear-gradient(135deg,#46e596,#1fbf6c);box-shadow:0 8px 22px -6px rgba(39,224,138,.55);transition:.15s}
+  .kbtn:hover{filter:brightness(1.05);transform:translateY(-1px)}
+  .kbtn .kt{display:flex;flex-direction:column;line-height:1.25}
+  .kbtn .ksub{font-weight:500;font-size:.72rem;opacity:.82}
+  .kbtn .karr{margin-left:auto;font-size:1.15rem}
+  .almbox{margin:10px 0}
+  .almbox .almhead{font-size:.74rem;color:var(--mut);margin-bottom:6px}
+  .alm-item{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;font-size:.78rem;padding:6px 0;border-bottom:1px solid var(--stroke2)}
+  .alm-item:last-child{border-bottom:none}
+  .alm-name{font-weight:600}
+  .alm-hours{color:var(--mut);font-size:.68rem;margin-top:2px}
+  .alm-link{color:var(--green);text-decoration:none;font-size:.72rem;flex:none}
+  .alm-link:hover{text-decoration:underline}
+  .alm-pin{font-size:18px;line-height:1;filter:drop-shadow(0 1px 3px rgba(0,0,0,.5));cursor:pointer}
 
   .foot{padding:10px 14px;border-top:1px solid var(--stroke2);font-size:.66rem;color:var(--dim);line-height:1.5}
   .foot b{color:var(--mut)}.foot a{color:var(--mut)}
@@ -217,8 +230,17 @@
     <button class="pbtn ptog" id="ptoggle" aria-label="Expand or collapse the list"><span class="chev"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></button>
   </div>
   <div class="days" id="days"></div>
+  <div class="sortwrap" id="sortwrap">
+    <button class="sortbtn" id="sortbtn">⇅ Sort</button>
+    <div class="sortopts" id="sortopts">
+      <button class="sortb" data-k="def">Default</button>
+      <button class="sortb" data-k="temp">Temp</button>
+      <button class="sortb" data-k="rain">Rain</button>
+      <button class="sortb" data-k="drive">Drive</button>
+    </div>
+  </div>
   <div class="list" id="list"></div>
-  <div class="detail hide" id="detail"></div>
+  <div class="detail" id="detail"></div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
@@ -304,7 +326,7 @@ const LIFTS=[
   { id:"salvista", name:"Salvistabahn", area:"Itter → Kleine Salve · SkiWelt", type:"10-seat gondola · 2020",
     valley:669, top:1565, length:2843, valleyLL:[47.4858,12.1626], topLL:[47.4675,12.1845],
     geo:"Heights + valley & Kleine Salve top verified (Google Places)",
-    season:"23 May – 1 Nov 2026", src:"https://www.hohe.salve.at/de/salvistabahn-itter.html" },
+    season:"23 May – 1 Nov 2026 (weekends/holidays only until 4 Jul, then daily)", src:"https://www.hohe.salve.at/de/salvistabahn-itter.html" },
   // ── Bergbahnen St. Johann in Tirol ────────────────────────────
   { id:"harschbichl", name:"Harschbichlbahn", area:"St. Johann in Tirol", type:"6-seat gondola (2 sect.)",
     valley:670, top:1604, length:null, valleyLL:[47.5168,12.4269], topLL:[47.4848,12.4280],
@@ -322,7 +344,7 @@ const LIFTS=[
   { id:"steinplatte", name:"Steinplattenbahn", area:"Waidring", type:"Gondola (Triassic Park)",
     valley:780, top:1860, length:null, valleyLL:[47.5873,12.5644], topLL:[47.6233,12.5835],
     geo:"Valley + upper-station hub verified (Google Places)",
-    season:"23 May – 20 Sep 2026", src:"https://www.tirol.at/reisefuehrer/sport/wandern/bergbahnen-im-sommer/a-gondelbahn-steinplatte-waidring" },
+    season:"23 May – 4 Oct 2026", src:"https://www.tirol.at/reisefuehrer/sport/wandern/bergbahnen-im-sommer/a-gondelbahn-steinplatte-waidring" },
   { id:"buchenstein", name:"Buchensteinwand chairlift", area:"St. Jakob i.H. · PillerseeTal", type:"4-seat chairlift",
     valley:850, top:1456, length:null, valleyLL:[47.5011,12.5717], topLL:[47.4843,12.5810],
     geo:"Valley + Jakobskreuz top verified (Google Places)",
@@ -346,59 +368,112 @@ const LIFTS=[
   { id:"markbachjoch", name:"Markbachjochbahn", area:"Niederau · Wildschönau", type:"8-seat gondola",
     valley:830, top:1500, length:null, valleyLL:[47.4479,12.0926], topLL:[47.4318,12.0971],
     geo:"Valley + Bergstation verified (Google Places); season operator-level",
-    season:"approx — Wildschönau summer (verify)", src:"https://www.wildschoenau.com/en/activities/summer-cable-cars" },
+    season:"9 May – 18 Oct 2026, daily", src:"https://www.wildschoenau.com/en/activities/summer-cable-cars" },
   // ── Ski Juwel · Alpbachtal ────────────────────────────────────
   { id:"wiedersberg", name:"Wiedersbergerhornbahn", area:"Alpbach", type:"6-seat gondola",
     valley:1000, top:2025, length:null, valleyLL:[47.3963,11.9243], topLL:[47.3714,11.9289],
     geo:"Valley + Bergstation verified (Google Places)",
-    season:"23 May – 8 Nov 2026", src:"https://www.tirol.at/reisefuehrer/sport/wandern/bergbahnen-im-sommer/a-wiedersbergerhornbahn-alpbach" },
+    season:"23 May – 8 Nov 2026 (weekends only to 20 Jun; closed 8–19 Jun for maintenance; daily from 20 Jun)", src:"https://www.tirol.at/reisefuehrer/sport/wandern/bergbahnen-im-sommer/a-wiedersbergerhornbahn-alpbach" },
   { id:"reitherkogel", name:"Reitherkogelbahn", area:"Reith im Alpbachtal", type:"Gondola",
     valley:637, top:1337, length:null, valleyLL:[47.4146,11.8802], topLL:[47.3976,11.8749],
     geo:"Valley + Bergstation verified (Google Places); closed Wed",
-    season:"approx — Ski Juwel summer, Wed rest-day", src:"https://www.skijuwel.com/en/summer/cable-cars" },
+    season:"9 May – 27 Sep 2026, daily except Wed", src:"https://www.skijuwel.com/en/summer/cable-cars" },
   // ── Kaiserlift Kufstein ───────────────────────────────────────
   { id:"kaiserlift", name:"Kaiserlift", area:"Kufstein → Brentenjoch", type:"Single-seat chairlift",
     valley:560, top:1256, length:null, valleyLL:[47.5903,12.1862], topLL:[47.5785,12.2120],
     geo:"Valley + Brentenjoch top verified (Google Places)",
-    season:"daily May – Oct 2026", src:"https://www.naturerlebnis-kaisergebirge.at/en/summer-cable-cars/kaiserlift-kufstein.html" },
+    season:"1 May – 1 Nov 2026, daily", src:"https://www.naturerlebnis-kaisergebirge.at/en/summer-cable-cars/kaiserlift-kufstein.html" },
 ];
 
-// hl = komoot highlight id (embeds inline). link = open-in-komoot URL. label shown on button.
+// Summit label per lift; the Komoot link is built from the top-station coordinates (komootURL).
 const KOMOOT={
-  hahnenkamm:{hl:"382306",label:"Hahnenkamm"},
-  hornbahn1:{hl:"523270",label:"Kitzbüheler Horn"},
-  hornbahn2:{hl:"523270",label:"Kitzbüheler Horn"},
-  horngipfel:{hl:"523270",label:"Kitzbüheler Horn"},
-  gaisberg:{hl:"3501699",label:"Gaisberg"},
-  fleckalm:{hl:"589487",label:"Ehrenbachhöhe / Hahnenkamm"},
-  sonnenrast:{hl:"589487",label:"Ehrenbachhöhe / Hahnenkamm"},
-  alpenrosen1:{hl:"1350322",label:"Talkaser / Alpinolino"},
-  alpenrosen2:{hl:"1350322",label:"Talkaser / Alpinolino"},
-  hochbrixen:{link:"https://www.komoot.com/guide/355214/peaks-in-bezirk-kitzbuehel",label:"Brixental peaks"},
-  salven1:{hl:"109304",label:"Hohe Salve"},
-  salven2:{hl:"109304",label:"Hohe Salve"},
-  hochsoell1:{hl:"109304",label:"Hohe Salve"},
-  hochsoell2:{hl:"109304",label:"Hohe Salve"},
-  salvista:{hl:"109304",label:"Hohe / Kleine Salve"},
-  harschbichl:{hl:"523270",label:"Kitzbüheler Horn / Harschbichl"},
-  streuboden:{link:"https://www.komoot.com/guide/6791/hiking-around-fieberbrunn",label:"Fieberbrunn hikes"},
-  laerchfilz:{link:"https://www.komoot.com/guide/6791/hiking-around-fieberbrunn",label:"Fieberbrunn hikes"},
-  steinplatte:{link:"https://www.komoot.com/guide/228538/peaks-around-waidring",label:"Waidring peaks"},
-  buchenstein:{hl:"147309",label:"Jakobskreuz / Buchensteinwand"},
-  almbahn1:{link:"https://www.komoot.com/guide/237855/peaks-around-st-jakob-in-haus",label:"PillerseeTal peaks"},
-  almbahn2:{link:"https://www.komoot.com/guide/237855/peaks-around-st-jakob-in-haus",label:"PillerseeTal peaks"},
-  schatzberg:{link:"https://www.komoot.com/guide/225975/de-mooiste-bergtoppen-rond-alpbach",label:"Alpbach/Wildschönau peaks"},
-  markbachjoch:{link:"https://www.komoot.com/guide/225975/de-mooiste-bergtoppen-rond-alpbach",label:"Alpbach/Wildschönau peaks"},
-  wiedersberg:{hl:"189974",label:"Wiedersberger Horn"},
-  reitherkogel:{link:"https://www.komoot.com/guide/225975/de-mooiste-bergtoppen-rond-alpbach",label:"Alpbach peaks"},
-  kaiserlift:{hl:"3513719",label:"Kaisergebirge / Brentenjoch"},
+  hahnenkamm:"Hahnenkamm", hornbahn1:"Kitzbüheler Horn", hornbahn2:"Kitzbüheler Horn", horngipfel:"Kitzbüheler Horn",
+  gaisberg:"Gaisberg", fleckalm:"Ehrenbachhöhe", sonnenrast:"Ehrenbachhöhe",
+  alpenrosen1:"Talkaser", alpenrosen2:"Talkaser", hochbrixen:"Hochbrixen / Gampenkogel",
+  salven1:"Hohe Salve", salven2:"Hohe Salve", hochsoell1:"Hexenwasser / Hohe Salve", hochsoell2:"Hohe Salve",
+  salvista:"Kleine Salve", harschbichl:"Harschbichl", streuboden:"Streuböden", laerchfilz:"Lärchfilzkogel",
+  steinplatte:"Steinplatte", buchenstein:"Buchensteinwand / Jakobskreuz", almbahn1:"Loderbichl", almbahn2:"Almenwelt Lofer",
+  schatzberg:"Schatzberg", markbachjoch:"Markbachjoch", wiedersberg:"Wiedersberger Horn",
+  reitherkogel:"Reither Kogel", kaiserlift:"Brentenjoch",
 };
 LIFTS.forEach(l=>{ l.climb=l.top-l.valley; l.komoot=KOMOOT[l.id]; });
+function komootURL(l){ return `https://www.komoot.com/plan/@${l.topLL[0]},${l.topLL[1]},13z?sport=hike`; } // coordinate-aware, hiking-filtered
+
+/* ===== Nearby Alms & huts — OpenStreetMap Overpass, lazy per selected lift ===== */
+const almData={}, almLayers={}, ALM_ZOOM=12;   // almData[id]: undefined=unfetched, []=none, null=error, [..]=results
+function almEsc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+function gmaps(a){return 'https://www.google.com/maps/search/'+encodeURIComponent(a.name)+'/@'+a.lat+','+a.lon+',17z';}
+function buildAlmMarkers(l){
+  if(almLayers[l.id]) return;
+  const arr=almData[l.id];
+  if(!arr||!arr.length){ almLayers[l.id]=[]; return; }
+  almLayers[l.id]=arr.slice(0,12).map(a=>{
+    const m=L.marker([a.lat,a.lon],{icon:L.divIcon({className:'',html:`<div class="alm-pin">${a.hut?'🛖':'🍴'}</div>`,iconSize:[20,20],iconAnchor:[10,10]})});
+    m.bindPopup(`<b>${almEsc(a.name)}</b><br>${a.hours?almEsc(a.hours):'Hours not listed'}<br><a href="${gmaps(a)}" target="_blank" rel="noopener">Open in Google Maps ↗</a>`);
+    return m;
+  });
+}
+function syncAlmVisibility(){
+  const show = almLift && panelState!=='list' && map.getZoom()>=ALM_ZOOM;   // map is visible in min + detail, hidden under the list
+  for(const id in almLayers){
+    const on = show && id===almLift;
+    almLayers[id].forEach(m=> on ? (map.hasLayer(m)||m.addTo(map)) : (map.hasLayer(m)&&map.removeLayer(m)) );
+  }
+}
+function onZoom(){
+  syncAlmVisibility();
+  if(almLift && panelState!=='list' && map.getZoom()>=ALM_ZOOM && almData[almLift]===undefined){
+    const l=LIFTS.find(x=>x.id===almLift); if(l) loadAlms(l);
+  }
+}
+async function loadAlms(l){
+  if(Array.isArray(almData[l.id])){ buildAlmMarkers(l); syncAlmVisibility(); renderAlmBox(l); return; }
+  delete almLayers[l.id]; almData[l.id]=undefined; renderAlmBox(l);
+  const [lat,lon]=l.topLL;
+  const q=`[out:json][timeout:25];(node["tourism"~"alpine_hut|wilderness_hut"]["name"](around:5000,${lat},${lon});way["tourism"~"alpine_hut|wilderness_hut"]["name"](around:5000,${lat},${lon});node["amenity"~"restaurant|cafe"]["name"](around:5000,${lat},${lon}););out center;`;
+  const ov='https://overpass-api.de/api/interpreter?data='+encodeURIComponent(q);
+  const urls=[
+    ov,
+    'https://overpass.kumi.systems/api/interpreter?data='+encodeURIComponent(q),
+    'https://api.allorigins.win/raw?url='+encodeURIComponent(ov),
+    'https://corsproxy.io/?url='+encodeURIComponent(ov)
+  ];
+  let j=null;
+  for(let pass=0; pass<2 && !j; pass++) for(const u of urls){
+    try{
+      const ctrl=new AbortController(), to=setTimeout(()=>ctrl.abort(),15000);
+      const r=await fetch(u,{signal:ctrl.signal}); clearTimeout(to);
+      if(!r.ok) continue;
+      const t=await r.text(); j=JSON.parse(t); break;
+    }catch(_){ j=null; }
+  }
+  if(!j){ almData[l.id]=null; buildAlmMarkers(l); syncAlmVisibility(); renderAlmBox(l); return; }
+  const seen=new Set();
+  almData[l.id]=(j.elements||[]).map(e=>{
+    const la=e.lat??(e.center&&e.center.lat), lo=e.lon??(e.center&&e.center.lon), nm=e.tags&&e.tags.name;
+    if(la==null||lo==null||!nm) return null;
+    const hut=e.tags.tourism==='alpine_hut'||e.tags.tourism==='wilderness_hut';
+    return {name:nm,lat:la,lon:lo,hours:e.tags.opening_hours||'',hut,d:kmDist(l.topLL,[la,lo])};
+  }).filter(Boolean).filter(x=>{const k=x.name+'|'+x.lat.toFixed(4);if(seen.has(k))return false;seen.add(k);return true;})
+    .sort((a,b)=> a.hut===b.hut ? a.d-b.d : (a.hut?-1:1));
+  buildAlmMarkers(l); syncAlmVisibility(); renderAlmBox(l);
+}
+function renderAlmBox(l){
+  const b=document.getElementById('almbox'); if(!b) return;
+  const arr=almData[l.id];
+  let body;
+  if(arr===undefined) body='<div class="muted" style="font-size:.78rem">Loading\u2026</div>';
+  else if(arr===null) body='<div class="muted" style="font-size:.78rem">Couldn\u2019t reach OpenStreetMap \u2014 tap the lift again to retry.</div>';
+  else if(!arr.length) body='<div class="muted" style="font-size:.78rem">None mapped within 5 km.</div>';
+  else body=arr.slice(0,8).map(a=>`<div class="alm-item"><div><div class="alm-name">${a.hut?'🛖 ':'\ud83c\udf74 '}${almEsc(a.name)}</div><div class="alm-hours">${a.hours?almEsc(a.hours):'Hours not listed'} \u00b7 ${a.d.toFixed(1)} km</div></div><a class="alm-link" href="${gmaps(a)}" target="_blank" rel="noopener">\ud83d\uddfa Maps \u2197</a></div>`).join('');
+  b.innerHTML='<div class="almhead">Huts &amp; mountain restaurants \u00b7 within 5 km (OpenStreetMap)</div>'+body;
+}
 
 const CLOSED_WEEK=[{name:"Bichlalm chairlift",opens:"opens 13 Jun"},{name:"Panoramabahn I + II",opens:"opens 20 Jun"}];
 
 /* ---- map ---- */
 const map=L.map('map',{zoomControl:false,scrollWheelZoom:true}).setView([47.49,12.34],10);
+map.on('zoomend',onZoom);
 L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{
   subdomains:'abcd', maxZoom:19, detectRetina:true, attribution:'&copy; OpenStreetMap &copy; CARTO'}).addTo(map);
 
@@ -491,22 +566,22 @@ const SEASONS={
   hahnenkamm:{r:[["05-01","05-31"],["06-15","11-01"]]},
   hornbahn1:{r:[["05-23","10-11"]]}, hornbahn2:{r:[["05-23","10-11"]]}, horngipfel:{r:[["05-23","10-11"]]},
   gaisberg:{r:[["05-09","10-26"]]},
-  fleckalm:{r:[["06-04","06-07"],["06-13","10-11"]]}, sonnenrast:{r:[["06-04","06-07"],["06-13","10-11"]]},
+  fleckalm:{r:[["06-04","10-11"]]}, sonnenrast:{r:[["06-13","10-11"]]},
   alpenrosen1:{r:[["05-23","10-26"]]}, alpenrosen2:{r:[["05-23","10-26"]]},
   hochbrixen:{r:[["05-23","10-26"]]},
   salven1:{r:[["05-14","10-26"]]}, salven2:{r:[["05-14","10-26"]]},
-  hochsoell1:{r:[["05-09","11-01"]]}, hochsoell2:{r:[["05-09","11-01"]]},
-  salvista:{r:[["05-23","11-01"]]},
+  hochsoell1:{r:[["05-09","11-01"]]}, hochsoell2:{r:[["07-01","11-01"]]},
+  salvista:{r:[["05-23","11-01"]],wk:[1,2,3,4,5],dailyFrom:"07-04"},
   harschbichl:{r:[["05-14","10-26"]]},
   streuboden:{r:[["05-14","11-01"]]}, laerchfilz:{r:[["05-14","11-01"]]},
-  steinplatte:{r:[["05-23","09-20"]]},
+  steinplatte:{r:[["05-23","10-04"]]},
   buchenstein:{r:[["05-14","11-01"]]},
   almbahn1:{r:[["05-14","11-02"]],wk:[2,3],dailyFrom:"07-02"}, almbahn2:{r:[["05-14","11-02"]],wk:[2,3],dailyFrom:"07-02"},
   schatzberg:{r:[["06-04","10-04"]]},
-  markbachjoch:{r:[["06-04","10-04"]]},
-  wiedersberg:{r:[["05-23","11-08"]]},
-  reitherkogel:{r:[["05-23","11-08"]],wk:[3]},
-  kaiserlift:{r:[["05-01","10-31"]]},
+  markbachjoch:{r:[["05-09","10-18"]]},
+  wiedersberg:{r:[["05-23","06-07"],["06-20","11-08"]],wk:[1,2,3,4,5],dailyFrom:"06-20"},
+  reitherkogel:{r:[["05-09","09-27"]],wk:[3]},
+  kaiserlift:{r:[["05-01","11-01"]]},
 };
 function isOpen(l,dateISO){
   const s=SEASONS[l.id]; if(!s) return false;
@@ -518,6 +593,36 @@ function isOpen(l,dateISO){
   return true;
 }
 const fmt=(d,o)=>new Date(d+"T12:00:00").toLocaleDateString('en-GB',o);
+
+let sortKey='def', sortDir='asc';
+const SLBL={def:'Default',temp:'Temp',rain:'Rain',drive:'Drive'};
+function liftVal(l){
+  if(sortKey==='temp'){const s=dayStat(l,activeDay);return s&&s.temp!=null?s.temp:null;}
+  if(sortKey==='rain'){const s=dayStat(l,activeDay);return s&&s.pp!=null?s.pp:null;}
+  if(sortKey==='drive'){return l.id==='gaisberg'?0:(driveRoad[l.id]??driveMin(l.valleyLL));}
+  return null;
+}
+function sortLifts(arr){
+  if(sortKey==='def') return arr;
+  const sign=sortDir==='asc'?1:-1;
+  return arr.slice().sort((a,b)=>{const va=liftVal(a),vb=liftVal(b);
+    if(va==null&&vb==null)return 0; if(va==null)return 1; if(vb==null)return -1; return (va-vb)*sign;});
+}
+function updateSortUI(){
+  const ar=sortKey==='def'?'':(sortDir==='asc'?' ↑':' ↓');
+  document.getElementById('sortbtn').textContent='⇅ Sort: '+SLBL[sortKey]+ar;
+  document.querySelectorAll('#sortopts .sortb').forEach(b=>{const k=b.dataset.k;
+    b.classList.toggle('on',k===sortKey);
+    b.textContent=SLBL[k]+(k===sortKey&&k!=='def'?(sortDir==='asc'?' ↑':' ↓'):'');});
+}
+document.getElementById('sortbtn').onclick=()=>document.getElementById('sortwrap').classList.toggle('open');
+document.getElementById('sortopts').addEventListener('click',e=>{
+  const b=e.target.closest('.sortb'); if(!b) return;
+  const k=b.dataset.k;
+  if(k===sortKey&&k!=='def'){sortDir=sortDir==='asc'?'desc':'asc';}
+  else {sortKey=k; sortDir=(k==='temp')?'desc':'asc';}   // warmest-first for temp; driest/closest-first otherwise
+  updateSortUI(); render();
+});
 
 function buildDays(){
   const c=document.getElementById('days'); c.innerHTML='';
@@ -557,18 +662,20 @@ function render(){
     return r;
   };
   if(!openLifts.length){list.innerHTML='<div class="empty">No lifts scheduled to run on this day.</div>';}
-  openLifts.forEach(l=>list.appendChild(mkRow(l,false)));
+  sortLifts(openLifts).forEach(l=>list.appendChild(mkRow(l,false)));
   if(closedLifts.length){
     const h=document.createElement('div'); h.className='listdiv';
     h.textContent=`Closed on this day · ${closedLifts.length} (not shown on map)`;
     list.appendChild(h);
-    closedLifts.forEach(l=>list.appendChild(mkRow(l,true)));
+    sortLifts(closedLifts).forEach(l=>list.appendChild(mkRow(l,true)));
   }
   renderDetail();
   document.getElementById('headct').innerHTML=`<b>${openLifts.length}</b> open · ${fmt(activeDay,{weekday:'short',day:'numeric',month:'short'})}`;
+  syncAlmVisibility();
 }
 
 let panelState='min';
+let almLift=null;   // lift whose Alms show on the map; survives minimize
 function setState(s){
   panelState=s;
   const p=document.getElementById('panel');
@@ -576,11 +683,12 @@ function setState(s){
   p.classList.add('state-'+s);
 }
 function goMin(){ selected=null; setState('min'); render(); }
-function goList(){ selected=null; setState('list'); render(); }
-function backToList(){ selected=null; setState('list'); render(); }
+function goList(){ selected=null; almLift=null; setState('list'); render(); }
+function backToList(){ selected=null; almLift=null; setState('list'); render(); }
 function select(id){
-  selected=id; setState('detail'); render();
+  selected=id; almLift=id; setState('detail'); render();
   const l=LIFTS.find(x=>x.id===id);
+  if(l) loadAlms(l);
   if(l && isOpen(l,activeDay)){ try{ if(map.hasLayer(layers[id].marker)) layers[id].marker.openPopup(); }catch(e){} flyToLift(l); }
 }
 // One control on the header bar: tap to expand the list / minimize it
@@ -590,20 +698,12 @@ document.getElementById('detail').addEventListener('click',e=>{
   if(e.target.closest('#dback')) return backToList();
   if(e.target.closest('#dmin')) return goMin();
   const sq=e.target.closest('.strip .d'); if(sq){ activeDay=sq.dataset.day; return render(); }
-  const tg=e.target.closest('.ktoggle[data-embed]');
-  if(tg){
-    const box=document.getElementById('detail').querySelector('.kframe'); if(!box) return;
-    if(box.dataset.loaded){ box.classList.toggle('open'); tg.classList.toggle('on'); return; }
-    box.innerHTML=`<iframe src="${tg.dataset.embed}" loading="lazy" allowfullscreen style="width:100%;height:330px;border:0;border-radius:12px"></iframe>`;
-    box.dataset.loaded="1"; box.classList.add('open'); tg.classList.add('on');
-  }
 });
 
 function renderDetail(){
   const el=document.getElementById('detail');
-  if(!selected){el.className='detail hide';return;}
+  if(!selected){el.innerHTML='';return;}
   const l=LIFTS.find(x=>x.id===selected);
-  el.className='detail';
   const strip=WINDOW.map(d=>`<div class="d ${isOpen(l,d)?'on':'off'}${d===activeDay?' act':''}" data-day="${d}" title="${fmt(d,{weekday:'long',day:'numeric',month:'short'})}">${fmt(d,{day:'2-digit'})}</div>`).join('');
   const openToday=isOpen(l,activeDay);
   el.innerHTML=`
@@ -619,6 +719,7 @@ function renderDetail(){
     <div class="drive">${driveLine(l)}</div>
     <div class="wxlift">${liftWxHTML(l)}</div>
     <div class="hourly" id="hourlybox"><div class="muted" style="font-size:.78rem">hourly forecast loading…</div></div>
+    <div class="almbox" id="almbox"></div>
     ${l.length?`<div class="meta" style="margin-bottom:10px"><b>Track length</b> ${l.length} m</div>`:''}
     <div class="strip">${strip}</div>
     <div class="meta">
@@ -628,16 +729,10 @@ function renderDetail(){
       Source: <a href="${l.src}" target="_blank" rel="noopener">technical data ↗</a>
     </div>
     <div class="komootbox">
-      ${l.komoot && l.komoot.hl
-        ? `<button class="ktoggle" data-embed="https://www.komoot.com/highlight/${l.komoot.hl}/embed">🗺️ Show hiking routes here — komoot</button>
-           <div class="kframe"></div>
-           <a class="kopen" href="https://www.komoot.com/highlight/${l.komoot.hl}" target="_blank" rel="noopener">Open on komoot ↗ · ${l.komoot.label}</a>`
-        : (l.komoot && l.komoot.link
-            ? `<a class="ktoggle" style="display:block;text-decoration:none" href="${l.komoot.link}" target="_blank" rel="noopener">🥾 Hiking routes near here — komoot ↗</a>
-               <a class="kopen" href="${l.komoot.link}" target="_blank" rel="noopener">${l.komoot.label}</a>`
-            : `<div class="kopen">No komoot route map linked for this lift yet.</div>`)}
+      <a class="kbtn" href="${komootURL(l)}" target="_blank" rel="noopener">🥾<span class="kt"><span>Explore hiking routes — Komoot</span><span class="ksub">routes from ${l.komoot||l.name}</span></span><span class="karr">↗</span></a>
     </div>`;
   paintHourly(l);
+  renderAlmBox(l);
 }
 
 /* ===== Live weather (Open-Meteo, free, no API key) ===== */
@@ -711,6 +806,7 @@ function paintHourly(l){
 }
 
 buildDays();
+updateSortUI();
 render();
 loadAllWx();
 loadDriveTimes();
