@@ -240,7 +240,7 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/opening_hours@3.9.0/opening_hours+deps.min.js"></script>
+<script src="https://openingh.openstreetmap.de/opening_hours.js/opening_hours+deps.min.js"></script>
 <script>
 /* ============================================================
    KitzSki + Westendorf summer lifts on the Kitzbüheler Alpen Sommer Card.
@@ -416,7 +416,7 @@ function almState(a){            // g=open during hiking hours on the selected d
 }
 function almIcon(a){
   return L.divIcon({className:'',iconSize:[26,26],iconAnchor:[13,13],
-    html:`<div class="alm-pin ${almState(a)}">${a.hut?'\u{1F6D6}':'\u{1F374}'}</div>`});
+    html:`<div class="alm-pin ${almState(a)}">\u{1F6D6}</div>`});
 }
 function almPopup(a){
   const lbl={g:'Likely open during hiking hours',r:'Closed on this day',x:'Hours not listed'}[almState(a)];
@@ -430,18 +430,16 @@ function showAlm(a){
   else if(map.hasLayer(m)) map.removeLayer(m);
 }
 function refreshAlms(){ for(const id in almSeen) showAlm(almSeen[id]); }   // recolor + re-gate visibility
-async function fetchAlmsInView(){
-  if(almBusy || map.getZoom()<ALM_ZOOM) return;
-  almBusy=true;
-  const b=map.getBounds();
-  const bbox=`${b.getSouth().toFixed(4)},${b.getWest().toFixed(4)},${b.getNorth().toFixed(4)},${b.getEast().toFixed(4)}`;
-  const q=`[out:json][timeout:25];(node["tourism"~"alpine_hut|wilderness_hut"]["name"](${bbox});way["tourism"~"alpine_hut|wilderness_hut"]["name"](${bbox});node["amenity"~"restaurant|cafe"]["name"](${bbox}););out center;`;
+async function fetchAlmsOnce(){          // one Overpass request at page load: huts within 5 km of every summit
+  if(almBusy) return; almBusy=true;
+  const parts=LIFTS.map(l=>`node["tourism"~"alpine_hut|wilderness_hut"]["name"](around:5000,${l.topLL[0]},${l.topLL[1]});way["tourism"~"alpine_hut|wilderness_hut"]["name"](around:5000,${l.topLL[0]},${l.topLL[1]});`).join('');
+  const q=`[out:json][timeout:60];(${parts});out center;`;
   const ov='https://overpass-api.de/api/interpreter?data='+encodeURIComponent(q);
   const urls=[ov,'https://overpass.kumi.systems/api/interpreter?data='+encodeURIComponent(q),'https://api.allorigins.win/raw?url='+encodeURIComponent(ov),'https://corsproxy.io/?url='+encodeURIComponent(ov)];
   let j=null;
-  for(const u of urls){
+  for(let pass=0; pass<2 && !j; pass++) for(const u of urls){
     try{
-      const ctrl=new AbortController(), to=setTimeout(()=>ctrl.abort(),15000);
+      const ctrl=new AbortController(), to=setTimeout(()=>ctrl.abort(),20000);
       const r=await fetch(u,{signal:ctrl.signal}); clearTimeout(to);
       if(!r.ok) continue;
       const t=await r.text(); j=JSON.parse(t); break;
@@ -453,12 +451,11 @@ async function fetchAlmsInView(){
     const id=e.type+'/'+e.id; if(almSeen[id]) continue;
     const lat=e.lat??(e.center&&e.center.lat), lon=e.lon??(e.center&&e.center.lon), nm=e.tags&&e.tags.name;
     if(lat==null||lon==null||!nm) continue;
-    const hut=e.tags.tourism==='alpine_hut'||e.tags.tourism==='wilderness_hut';
-    const a={id,name:nm,lat,lon,hours:e.tags.opening_hours||'',hut};
-    almSeen[id]=a; showAlm(a);
+    almSeen[id]={id,name:nm,lat,lon,hours:e.tags.opening_hours||''};
+    showAlm(almSeen[id]);
   }
 }
-function onAlmMove(){ refreshAlms(); if(map.getZoom()>=ALM_ZOOM){ clearTimeout(almTimer); almTimer=setTimeout(fetchAlmsInView,400); } }
+function onAlmMove(){ refreshAlms(); }   // pan/zoom only toggles visibility + recolor; no fetching
 
 const CLOSED_WEEK=[{name:"Bichlalm chairlift",opens:"opens 13 Jun"},{name:"Panoramabahn I + II",opens:"opens 20 Jun"}];
 
@@ -797,6 +794,7 @@ updateSortUI();
 render();
 loadAllWx();
 loadDriveTimes();
+fetchAlmsOnce();
 setInterval(loadAllWx, 30*60*1000); // refresh forecast every 30 min while open
 </script>
 </body>
