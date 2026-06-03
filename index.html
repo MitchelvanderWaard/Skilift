@@ -153,15 +153,11 @@
   .kbtn .kt{display:flex;flex-direction:column;line-height:1.25}
   .kbtn .ksub{font-weight:500;font-size:.72rem;opacity:.82}
   .kbtn .karr{margin-left:auto;font-size:1.15rem}
-  .almbox{margin:10px 0}
-  .almbox .almhead{font-size:.74rem;color:var(--mut);margin-bottom:6px}
-  .alm-item{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;font-size:.78rem;padding:6px 0;border-bottom:1px solid var(--stroke2)}
-  .alm-item:last-child{border-bottom:none}
-  .alm-name{font-weight:600}
-  .alm-hours{color:var(--mut);font-size:.68rem;margin-top:2px}
-  .alm-link{color:var(--green);text-decoration:none;font-size:.72rem;flex:none}
-  .alm-link:hover{text-decoration:underline}
-  .alm-pin{font-size:18px;line-height:1;filter:drop-shadow(0 1px 3px rgba(0,0,0,.5));cursor:pointer}
+  .alm-pin{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;
+    background:rgba(22,25,34,.92);border:2px solid #9aa0aa;box-shadow:0 1px 4px rgba(0,0,0,.5);cursor:pointer}
+  .alm-pin.g{border-color:#37e08a;box-shadow:0 0 0 2px rgba(55,224,138,.3),0 1px 4px rgba(0,0,0,.5)}
+  .alm-pin.r{border-color:#ff6b6b}
+  .alm-pin.x{border-color:#9aa0aa}
 
   .foot{padding:10px 14px;border-top:1px solid var(--stroke2);font-size:.66rem;color:var(--dim);line-height:1.5}
   .foot b{color:var(--mut)}.foot a{color:var(--mut)}
@@ -244,6 +240,7 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/opening_hours@3.9.0/opening_hours+deps.min.js"></script>
 <script>
 /* ============================================================
    KitzSki + Westendorf summer lifts on the Kitzbüheler Alpen Sommer Card.
@@ -399,81 +396,75 @@ const KOMOOT={
 LIFTS.forEach(l=>{ l.climb=l.top-l.valley; l.komoot=KOMOOT[l.id]; });
 function komootURL(l){ return `https://www.komoot.com/plan/@${l.topLL[0]},${l.topLL[1]},13z?sport=hike`; } // coordinate-aware, hiking-filtered
 
-/* ===== Nearby Alms & huts — OpenStreetMap Overpass, lazy per selected lift ===== */
-const almData={}, almLayers={}, ALM_ZOOM=12;   // almData[id]: undefined=unfetched, []=none, null=error, [..]=results
+/* ===== Nearby Alms & huts — OpenStreetMap Overpass, fetched by map view when zoomed in ===== */
+const ALM_ZOOM=13;
+const almSeen={};      // osmId -> {id,name,lat,lon,hours,hut}
+const almMarkers={};   // osmId -> L.marker
+let almBusy=false, almTimer=null;
 function almEsc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 function gmaps(a){return 'https://www.google.com/maps/search/'+encodeURIComponent(a.name)+'/@'+a.lat+','+a.lon+',17z';}
-function buildAlmMarkers(l){
-  if(almLayers[l.id]) return;
-  const arr=almData[l.id];
-  if(!arr||!arr.length){ almLayers[l.id]=[]; return; }
-  almLayers[l.id]=arr.slice(0,12).map(a=>{
-    const m=L.marker([a.lat,a.lon],{icon:L.divIcon({className:'',html:`<div class="alm-pin">${a.hut?'🛖':'🍴'}</div>`,iconSize:[20,20],iconAnchor:[10,10]})});
-    m.bindPopup(`<b>${almEsc(a.name)}</b><br>${a.hours?almEsc(a.hours):'Hours not listed'}<br><a href="${gmaps(a)}" target="_blank" rel="noopener">Open in Google Maps ↗</a>`);
-    return m;
-  });
+function almState(a){            // g=open during hiking hours on the selected day, r=closed, x=unknown/unparseable
+  const OH=window.opening_hours;
+  if(!a.hours || !OH) return 'x';
+  try{
+    const oh=new OH(a.hours);
+    const d=activeDay.split('-').map(Number);
+    const from=new Date(d[0],d[1]-1,d[2],HIKE[0],0,0), to=new Date(d[0],d[1]-1,d[2],HIKE[1],0,0);
+    const iv=oh.getOpenIntervals(from,to);
+    return (iv && iv.length) ? 'g' : 'r';
+  }catch(e){ return 'x'; }
 }
-function syncAlmVisibility(){
-  const show = almLift && panelState!=='list' && map.getZoom()>=ALM_ZOOM;   // map is visible in min + detail, hidden under the list
-  for(const id in almLayers){
-    const on = show && id===almLift;
-    almLayers[id].forEach(m=> on ? (map.hasLayer(m)||m.addTo(map)) : (map.hasLayer(m)&&map.removeLayer(m)) );
-  }
+function almIcon(a){
+  return L.divIcon({className:'',iconSize:[26,26],iconAnchor:[13,13],
+    html:`<div class="alm-pin ${almState(a)}">${a.hut?'\u{1F6D6}':'\u{1F374}'}</div>`});
 }
-function onZoom(){
-  syncAlmVisibility();
-  if(almLift && panelState!=='list' && map.getZoom()>=ALM_ZOOM && almData[almLift]===undefined){
-    const l=LIFTS.find(x=>x.id===almLift); if(l) loadAlms(l);
-  }
+function almPopup(a){
+  const lbl={g:'Likely open during hiking hours',r:'Closed on this day',x:'Hours not listed'}[almState(a)];
+  return `<b>${almEsc(a.name)}</b><br>${a.hours?almEsc(a.hours):'Hours not listed'}<br><span style="color:var(--mut)">${lbl}</span><br><a href="${gmaps(a)}" target="_blank" rel="noopener">Open in Google Maps \u2197</a>`;
 }
-async function loadAlms(l){
-  if(Array.isArray(almData[l.id])){ buildAlmMarkers(l); syncAlmVisibility(); renderAlmBox(l); return; }
-  delete almLayers[l.id]; almData[l.id]=undefined; renderAlmBox(l);
-  const [lat,lon]=l.topLL;
-  const q=`[out:json][timeout:25];(node["tourism"~"alpine_hut|wilderness_hut"]["name"](around:5000,${lat},${lon});way["tourism"~"alpine_hut|wilderness_hut"]["name"](around:5000,${lat},${lon});node["amenity"~"restaurant|cafe"]["name"](around:5000,${lat},${lon}););out center;`;
+function showAlm(a){
+  let m=almMarkers[a.id];
+  if(!m){ m=L.marker([a.lat,a.lon],{icon:almIcon(a)}).bindPopup(almPopup(a)); almMarkers[a.id]=m; }
+  else { m.setIcon(almIcon(a)); m.setPopupContent(almPopup(a)); }
+  if(map.getZoom()>=ALM_ZOOM){ if(!map.hasLayer(m)) m.addTo(map); }
+  else if(map.hasLayer(m)) map.removeLayer(m);
+}
+function refreshAlms(){ for(const id in almSeen) showAlm(almSeen[id]); }   // recolor + re-gate visibility
+async function fetchAlmsInView(){
+  if(almBusy || map.getZoom()<ALM_ZOOM) return;
+  almBusy=true;
+  const b=map.getBounds();
+  const bbox=`${b.getSouth().toFixed(4)},${b.getWest().toFixed(4)},${b.getNorth().toFixed(4)},${b.getEast().toFixed(4)}`;
+  const q=`[out:json][timeout:25];(node["tourism"~"alpine_hut|wilderness_hut"]["name"](${bbox});way["tourism"~"alpine_hut|wilderness_hut"]["name"](${bbox});node["amenity"~"restaurant|cafe"]["name"](${bbox}););out center;`;
   const ov='https://overpass-api.de/api/interpreter?data='+encodeURIComponent(q);
-  const urls=[
-    ov,
-    'https://overpass.kumi.systems/api/interpreter?data='+encodeURIComponent(q),
-    'https://api.allorigins.win/raw?url='+encodeURIComponent(ov),
-    'https://corsproxy.io/?url='+encodeURIComponent(ov)
-  ];
+  const urls=[ov,'https://overpass.kumi.systems/api/interpreter?data='+encodeURIComponent(q),'https://api.allorigins.win/raw?url='+encodeURIComponent(ov),'https://corsproxy.io/?url='+encodeURIComponent(ov)];
   let j=null;
-  for(let pass=0; pass<2 && !j; pass++) for(const u of urls){
+  for(const u of urls){
     try{
       const ctrl=new AbortController(), to=setTimeout(()=>ctrl.abort(),15000);
       const r=await fetch(u,{signal:ctrl.signal}); clearTimeout(to);
       if(!r.ok) continue;
       const t=await r.text(); j=JSON.parse(t); break;
-    }catch(_){ j=null; }
+    }catch(_){}
   }
-  if(!j){ almData[l.id]=null; buildAlmMarkers(l); syncAlmVisibility(); renderAlmBox(l); return; }
-  const seen=new Set();
-  almData[l.id]=(j.elements||[]).map(e=>{
-    const la=e.lat??(e.center&&e.center.lat), lo=e.lon??(e.center&&e.center.lon), nm=e.tags&&e.tags.name;
-    if(la==null||lo==null||!nm) return null;
+  almBusy=false;
+  if(!j) return;
+  for(const e of (j.elements||[])){
+    const id=e.type+'/'+e.id; if(almSeen[id]) continue;
+    const lat=e.lat??(e.center&&e.center.lat), lon=e.lon??(e.center&&e.center.lon), nm=e.tags&&e.tags.name;
+    if(lat==null||lon==null||!nm) continue;
     const hut=e.tags.tourism==='alpine_hut'||e.tags.tourism==='wilderness_hut';
-    return {name:nm,lat:la,lon:lo,hours:e.tags.opening_hours||'',hut,d:kmDist(l.topLL,[la,lo])};
-  }).filter(Boolean).filter(x=>{const k=x.name+'|'+x.lat.toFixed(4);if(seen.has(k))return false;seen.add(k);return true;})
-    .sort((a,b)=> a.hut===b.hut ? a.d-b.d : (a.hut?-1:1));
-  buildAlmMarkers(l); syncAlmVisibility(); renderAlmBox(l);
+    const a={id,name:nm,lat,lon,hours:e.tags.opening_hours||'',hut};
+    almSeen[id]=a; showAlm(a);
+  }
 }
-function renderAlmBox(l){
-  const b=document.getElementById('almbox'); if(!b) return;
-  const arr=almData[l.id];
-  let body;
-  if(arr===undefined) body='<div class="muted" style="font-size:.78rem">Loading\u2026</div>';
-  else if(arr===null) body='<div class="muted" style="font-size:.78rem">Couldn\u2019t reach OpenStreetMap \u2014 tap the lift again to retry.</div>';
-  else if(!arr.length) body='<div class="muted" style="font-size:.78rem">None mapped within 5 km.</div>';
-  else body=arr.slice(0,8).map(a=>`<div class="alm-item"><div><div class="alm-name">${a.hut?'🛖 ':'\ud83c\udf74 '}${almEsc(a.name)}</div><div class="alm-hours">${a.hours?almEsc(a.hours):'Hours not listed'} \u00b7 ${a.d.toFixed(1)} km</div></div><a class="alm-link" href="${gmaps(a)}" target="_blank" rel="noopener">\ud83d\uddfa Maps \u2197</a></div>`).join('');
-  b.innerHTML='<div class="almhead">Huts &amp; mountain restaurants \u00b7 within 5 km (OpenStreetMap)</div>'+body;
-}
+function onAlmMove(){ refreshAlms(); if(map.getZoom()>=ALM_ZOOM){ clearTimeout(almTimer); almTimer=setTimeout(fetchAlmsInView,400); } }
 
 const CLOSED_WEEK=[{name:"Bichlalm chairlift",opens:"opens 13 Jun"},{name:"Panoramabahn I + II",opens:"opens 20 Jun"}];
 
 /* ---- map ---- */
 const map=L.map('map',{zoomControl:false,scrollWheelZoom:true}).setView([47.49,12.34],10);
-map.on('zoomend',onZoom);
+map.on('moveend',onAlmMove);
 L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{
   subdomains:'abcd', maxZoom:19, detectRetina:true, attribution:'&copy; OpenStreetMap &copy; CARTO'}).addTo(map);
 
@@ -671,11 +662,10 @@ function render(){
   }
   renderDetail();
   document.getElementById('headct').innerHTML=`<b>${openLifts.length}</b> open · ${fmt(activeDay,{weekday:'short',day:'numeric',month:'short'})}`;
-  syncAlmVisibility();
+  refreshAlms();
 }
 
 let panelState='min';
-let almLift=null;   // lift whose Alms show on the map; survives minimize
 function setState(s){
   panelState=s;
   const p=document.getElementById('panel');
@@ -683,12 +673,11 @@ function setState(s){
   p.classList.add('state-'+s);
 }
 function goMin(){ selected=null; setState('min'); render(); }
-function goList(){ selected=null; almLift=null; setState('list'); render(); }
-function backToList(){ selected=null; almLift=null; setState('list'); render(); }
+function goList(){ selected=null; setState('list'); render(); }
+function backToList(){ selected=null; setState('list'); render(); }
 function select(id){
-  selected=id; almLift=id; setState('detail'); render();
+  selected=id; setState('detail'); render();
   const l=LIFTS.find(x=>x.id===id);
-  if(l) loadAlms(l);
   if(l && isOpen(l,activeDay)){ try{ if(map.hasLayer(layers[id].marker)) layers[id].marker.openPopup(); }catch(e){} flyToLift(l); }
 }
 // One control on the header bar: tap to expand the list / minimize it
@@ -719,7 +708,6 @@ function renderDetail(){
     <div class="drive">${driveLine(l)}</div>
     <div class="wxlift">${liftWxHTML(l)}</div>
     <div class="hourly" id="hourlybox"><div class="muted" style="font-size:.78rem">hourly forecast loading…</div></div>
-    <div class="almbox" id="almbox"></div>
     ${l.length?`<div class="meta" style="margin-bottom:10px"><b>Track length</b> ${l.length} m</div>`:''}
     <div class="strip">${strip}</div>
     <div class="meta">
@@ -732,7 +720,6 @@ function renderDetail(){
       <a class="kbtn" href="${komootURL(l)}" target="_blank" rel="noopener">🥾<span class="kt"><span>Explore hiking routes — Komoot</span><span class="ksub">routes from ${l.komoot||l.name}</span></span><span class="karr">↗</span></a>
     </div>`;
   paintHourly(l);
-  renderAlmBox(l);
 }
 
 /* ===== Live weather (Open-Meteo, free, no API key) ===== */
